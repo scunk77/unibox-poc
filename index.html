@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UniBox POC</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#171b22; --panel2:#1e232c; --text:#e8ecf2; --muted:#8b95a5;
+    --green:#2ecc71; --orange:#ff9f43; --purple:#a77bff; --red:#ff5c5c; --amber:#f5c542; --blue:#5aa9ff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.4}
+  .wrap{max-width:640px;margin:0 auto;padding:12px 12px 90px}
+  header{display:flex;align-items:center;gap:10px;padding:8px 2px 12px}
+  header h1{margin:0;font-size:24px;letter-spacing:.5px}
+  .badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--amber);color:#1a1400;letter-spacing:1px}
+  .sub{color:var(--muted);font-size:13px;margin:0 2px 12px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:16px 2px 8px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .conn{background:var(--panel);border:2px solid #2a303b;border-radius:14px;padding:14px 10px;color:var(--text);font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:84px;font-family:inherit;transition:border-color .15s,background .15s}
+  .conn:last-child:nth-child(odd){grid-column:1 / -1}
+  .conn .ic{font-size:26px}
+  .conn .st{font-size:12px;color:var(--muted)}
+  .conn.on{border-color:var(--green);background:#14231b}
+  .conn.on .st{color:var(--green);font-weight:600}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+  .stat{background:var(--panel);border-radius:12px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:24px}
+  .stat span{font-size:12px;color:var(--muted)}
+  .stat.urg b{color:var(--red)}
+  .pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .pill{flex:0 0 auto;background:var(--panel);border:2px solid #2a303b;color:var(--text);border-radius:999px;padding:8px 16px;font-size:14px;cursor:pointer;font-family:inherit}
+  .pill[data-cat=work].active{border-color:var(--orange);background:rgba(255,159,67,.18);color:var(--orange)}
+  .pill[data-cat=personal].active{border-color:var(--green);background:rgba(46,204,113,.18);color:var(--green)}
+  .pill[data-cat=pleasure].active{border-color:var(--purple);background:rgba(167,123,255,.18);color:var(--purple)}
+  .pill[data-cat=all].active{border-color:var(--text);background:#2a303b}
+  .card{background:var(--panel);border-radius:14px;padding:12px 14px;margin-bottom:10px;border-left:5px solid var(--muted);cursor:pointer}
+  .card:active{background:var(--panel2)}
+  .card.high{border-left-color:var(--red)} .card.med{border-left-color:var(--amber)} .card.low{border-left-color:#4a5363}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .src{font-size:12px;color:var(--muted)}
+  .time{font-size:12px;color:var(--muted);white-space:nowrap}
+  .sender{font-weight:700;margin-top:4px}
+  .subject{font-weight:600;margin-top:2px}
+  .preview{color:var(--muted);font-size:14px;margin-top:2px}
+  .tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+  .tag.work{background:rgba(255,159,67,.18);color:var(--orange)}
+  .tag.personal{background:rgba(46,204,113,.18);color:var(--green)}
+  .tag.pleasure{background:rgba(167,123,255,.18);color:var(--purple)}
+  .tag.high{background:rgba(255,92,92,.18);color:var(--red)}
+  .tag.med{background:rgba(245,197,66,.18);color:var(--amber)}
+  .tag.low{background:#262c36;color:var(--muted)}
+  .ai{margin-top:8px;background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:13px;color:#c5cddb}
+  .ai b{color:var(--blue)}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px;background:var(--panel);border-radius:14px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:14px}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,30px);background:#222a36;border:1px solid #3a4352;color:var(--text);padding:12px 18px;border-radius:12px;font-size:14px;max-width:92vw;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10;text-align:center}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+
+  .panel{background:var(--panel);border-radius:12px;padding:10px 12px;margin-top:10px}
+  .costrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .cost b{font-size:22px;color:var(--amber)}
+  .cost small{display:block;color:var(--muted);font-size:12px}
+  .mini{background:#262c36;border:1px solid #3a4352;color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  .srow{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .switch{display:flex;align-items:center;gap:10px;cursor:pointer;background:none;border:0;color:var(--text);font-size:15px;font-family:inherit;padding:4px 0}
+  .track{width:44px;height:24px;border-radius:999px;background:#2a303b;position:relative;transition:background .15s}
+  .track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#8b95a5;transition:left .15s,background .15s}
+  .switch.on .track{background:rgba(46,204,113,.35)}
+  .switch.on .track::after{left:23px;background:var(--green)}
+  .log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--green);margin-top:8px;min-height:16px}
+  .conn.locked{border-style:dashed;opacity:.75}
+  .conn.locked .st{color:var(--amber)}
+  .cap{font-size:13px;color:var(--muted);text-align:center;margin-top:14px}
+  .cap b{color:var(--text)} .cap .warn{color:var(--red);font-weight:700}
+  @keyframes flash{0%{background:#25523a;transform:scale(.98)}100%{background:var(--panel);transform:scale(1)}}
+  .card.fresh{animation:flash .9s ease-out}
+  .card.unscored .ai{opacity:.7;font-style:italic}
+
+  .pricing{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:600px){.pricing{grid-template-columns:repeat(3,1fr)}}
+  .tier{background:var(--panel);border:2px solid #2a303b;border-radius:14px;padding:14px;display:flex;flex-direction:column}
+  .tier.pro{border-color:var(--blue)}
+  .tier h3{margin:0;font-size:14px;letter-spacing:1.5px;color:var(--muted)}
+  .tier .price{font-size:28px;font-weight:700;margin:4px 0 8px}
+  .tier .price small{font-size:13px;color:var(--muted);font-weight:400}
+  .tier ul{list-style:none;margin:0 0 14px;padding:0;font-size:14px;flex:1}
+  .tier li{padding:4px 0}
+  .tier li.no{color:var(--muted)}
+  .tier li::before{content:"✓ ";color:var(--green);font-weight:700}
+  .tier li.no::before{content:"✕ ";color:var(--red)}
+  .startbtn{background:var(--green);color:#06210f;border:0;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+  .tier.pro .startbtn{background:var(--blue);color:#06182b}
+  .tier .cur{font-size:11px;color:var(--green);font-weight:700;letter-spacing:1px;margin-bottom:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>📬 UniBox</h1><span class="badge">POC</span></header>
+  <p class="sub">One feed for every inbox. All messages below are mock example data, not real mail.</p>
+
+  <h2>Connect accounts</h2>
+  <div class="grid" id="connGrid"></div>
+
+  <div class="stats">
+    <div class="stat"><b id="sMsgs">0</b><span>Messages</span></div>
+    <div class="stat urg"><b id="sUrg">0</b><span>Urgent</span></div>
+    <div class="stat"><b id="sConn">0</b><span>Connected</span></div>
+  </div>
+
+  <div class="panel costrow cost">
+    <div><b id="costVal">0.00p</b><small id="costFormula">Est. AI cost today (mini-model, 0.02p per message)</small></div>
+    <button class="mini" id="resetDay">Reset day</button>
+  </div>
+
+  <div class="panel">
+    <div class="srow">
+      <button class="switch on" id="smartToggle" aria-pressed="true"><span class="track"></span><span>Smart Refresh</span></button>
+      <button class="mini" id="refreshNow">Refresh now</button>
+    </div>
+    <div class="log" id="log">Ready.</div>
+  </div>
+
+  <h2>Filter</h2>
+  <div class="pills" id="pills"></div>
+
+  <h2>Feed (urgent first)</h2>
+  <div id="feed"></div>
+  <p class="cap" id="cap"></p>
+  <h2 id="pricingH">Pricing</h2>
+  <div class="pricing" id="pricing">
+    <div class="tier" data-tier="free">
+      <h3>FREE</h3><div class="cur">YOUR CURRENT PLAN</div>
+      <div class="price">£0<small> /month</small></div>
+      <ul>
+        <li>3 accounts</li>
+        <li>100 emails per day</li>
+        <li>AI priority scoring and filters</li>
+        <li class="no">No SMS</li>
+        <li class="no">No AI drafting</li>
+      </ul>
+      <button class="startbtn" data-start="Free">Start Free</button>
+    </div>
+    <div class="tier pro" data-tier="pro">
+      <h3>PRO</h3>
+      <div class="price">£4.99<small> /month</small></div>
+      <ul>
+        <li>5 accounts</li>
+        <li>SMS included</li>
+        <li>AI drafting (you approve before send)</li>
+      </ul>
+      <button class="startbtn" data-start="Pro">Start Free</button>
+    </div>
+    <div class="tier" data-tier="business">
+      <h3>BUSINESS</h3>
+      <div class="price">£9.99<small> /month</small></div>
+      <ul>
+        <li>Unlimited accounts</li>
+        <li>Priority support</li>
+        <li>Shared team inbox</li>
+      </ul>
+      <button class="startbtn" data-start="Business">Start Free</button>
+    </div>
+  </div>
+  <p class="foot">Pricing preview only. Paid tiers aren't live yet and nothing is charged.</p>
+  <p class="foot">Mock mode: all data is example data and nothing is sent.</p>
+</div>
+<div id="toast"></div>
+
+<script>
+const SOURCES = {
+  gmail:{label:"Gmail",icon:"📧"},
+  outlook:{label:"Outlook",icon:"📨"},
+  icloud:{label:"iCloud Mail",icon:"☁️"},
+  sms:{label:"SMS",icon:"💬"},
+  whatsapp:{label:"WhatsApp",icon:"🟢"}
+};
+const CATS = [["all","All"],["work","Work"],["personal","Personal"],["pleasure","Pleasure"]];
+const RANK = {high:0,med:1,low:2};
+
+// Mock data only (example senders, not real people)
+const MESSAGES = [
+  {source:"gmail",category:"work",sender:"Alex Morgan",subject:"Contract needs signing today",preview:"Please sign the supplier contract before 5pm or the price offer lapses.",ago:"12 min ago",mins:12,urgency:"high",ai:"Flagged high: hard deadline today and a financial consequence if missed."},
+  {source:"sms",category:"personal",sender:"Sam (Brother)",subject:"Mum's hospital visit",preview:"Can you ring me back? Mum's appointment moved to this afternoon.",ago:"25 min ago",mins:25,urgency:"high",ai:"Flagged high: family health matter with a same-day change."},
+  {source:"outlook",category:"work",sender:"Priya Shah",subject:"Meeting moved to 3pm",preview:"Quick heads up, the project review is now 3pm in room B.",ago:"1 hr ago",mins:60,urgency:"med",ai:"Flagged medium: schedule change today, needs a reply to confirm."},
+  {source:"whatsapp",category:"personal",sender:"Dave (Mates)",subject:"Sunday ride out?",preview:"Heading to the coast on Sunday if the weather holds. You in?",ago:"2 hr ago",mins:120,urgency:"med",ai:"Flagged medium: a friend is waiting on your yes or no before the weekend."},
+  {source:"icloud",category:"personal",sender:"Bright Energy",subject:"Your monthly bill is ready",preview:"Your latest statement is available. Payment due in 10 days.",ago:"3 hr ago",mins:180,urgency:"med",ai:"Flagged medium: a bill with a due date, but no action needed today."},
+  {source:"gmail",category:"pleasure",sender:"Track Day Events",subject:"Early-bird tickets close Friday",preview:"Spring track day tickets are 20% off until Friday midnight.",ago:"5 hr ago",mins:300,urgency:"low",ai:"Marked low: matches your riding interest, but it's optional and not urgent."},
+  {source:"outlook",category:"work",sender:"Team Digest",subject:"Weekly update: 14 items",preview:"Here's what changed across your projects this week.",ago:"6 hr ago",mins:360,urgency:"low",ai:"Marked low: automated digest, no direct questions to you."},
+  {source:"whatsapp",category:"pleasure",sender:"Film Club",subject:"Poll: Friday movie pick",preview:"Vote for this Friday's film. Results at 6pm.",ago:"8 hr ago",mins:480,urgency:"low",ai:"Marked low: social poll, easy to answer later."},
+  {source:"sms",category:"work",sender:"Parcel Courier",subject:"Delivery window tomorrow",preview:"Your parcel will arrive between 10am and 2pm tomorrow.",ago:"1 day ago",mins:1440,urgency:"low",ai:"Marked low: automated notification with nothing to reply to."},
+  {source:"icloud",category:"pleasure",sender:"Weekend Deals",subject:"Newsletter: 10 ideas for the weekend",preview:"Restaurants, rides and gigs happening near you this weekend.",ago:"2 days ago",mins:2880,urgency:"low",ai:"Marked low: marketing newsletter, safe to ignore."}
+];
+
+const MAX_ACCOUNTS=3, MAX_MSGS=100, PENCE_PER_MSG=0.02;
+const state = {connected:new Set(["gmail","outlook"]), filter:"all", smart:true, processed:0, scored:new Set(), fresh:new Set()};
+const $ = id => document.getElementById(id);
+
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove("show"),2600);
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+// Simulated AI scoring run. Smart Refresh ON: score only messages not in the cache.
+function runScoring(){
+  const vis=MESSAGES.map((m,i)=>i).filter(i=>state.connected.has(MESSAGES[i].source));
+  let targets = state.smart ? vis.filter(i=>!state.scored.has(i)) : vis.slice();
+  const cached = vis.length - targets.length;
+  const room = MAX_MSGS - state.processed;
+  let capped=false;
+  if(targets.length>room){targets=targets.slice(0,Math.max(room,0));capped=true;}
+  state.processed += targets.length;
+  targets.forEach(i=>state.scored.add(i));
+  state.fresh=new Set(targets);
+  $("log").textContent = state.smart
+    ? `Smart Refresh: cached ${cached} messages, scored ${targets.length} new`
+    : `Full refresh: re-scored all ${targets.length} messages (no cache)`;
+  if(capped) toast("Daily free-tier cap reached: 100 messages scored");
+}
+
+function renderConn(){
+  $("connGrid").innerHTML = Object.entries(SOURCES).map(([k,v])=>{
+    const on=state.connected.has(k), locked=(k==="sms");
+    const st = locked ? "🔒 Paid add-on" : (on?"Connected":"Tap to connect");
+    return `<button class="conn ${on?"on":""} ${locked?"locked":""}" data-src="${k}" aria-pressed="${on}"><span class="ic">${v.icon}</span><span>${v.label}</span><span class="st">${st}</span></button>`;
+  }).join("");
+}
+function renderPills(){
+  $("pills").innerHTML = CATS.map(([k,l])=>`<button class="pill ${state.filter===k?"active":""}" data-cat="${k}">${l}</button>`).join("");
+}
+function visible(){
+  return MESSAGES.filter(m=>state.connected.has(m.source) && (state.filter==="all"||m.category===state.filter))
+    .sort((a,b)=>RANK[a.urgency]-RANK[b.urgency] || a.mins-b.mins);
+}
+function buildCard(m,idx,fresh){
+  const n=document.createElement("div");
+  const scored=state.scored.has(idx);
+  n.className=`card ${m.urgency}${fresh?" fresh":""}${scored?"":" unscored"}`;
+  n.dataset.i=idx;
+  const ai = scored ? m.ai : "Not scored: free-tier daily cap reached.";
+  n.innerHTML=`<div class="row"><span class="src">${SOURCES[m.source].icon} ${SOURCES[m.source].label}</span><span class="time">${m.ago}</span></div>
+      <div class="sender">${esc(m.sender)}</div>
+      <div class="subject">${esc(m.subject)}</div>
+      <div class="preview">${esc(m.preview)}</div>
+      <div class="tags"><span class="tag ${m.urgency}">${m.urgency==="med"?"medium":m.urgency}</span><span class="tag ${m.category}">${m.category}</span></div>
+      <div class="ai"><b>🤖 AI note:</b> ${esc(ai)}</div>`;
+  return n;
+}
+// Keyed render: cached cards keep the same DOM node (not re-rendered); only freshly scored cards are rebuilt.
+function renderFeed(){
+  const list=visible(), feed=$("feed");
+  const keep=new Set(list.map(m=>MESSAGES.indexOf(m)));
+  [...feed.children].forEach(n=>{ if(!n.dataset.i || !keep.has(+n.dataset.i)) n.remove(); });
+  if(!list.length){
+    feed.innerHTML=`<div class="empty">No messages. Connect an account or change the filter.</div>`;
+  } else {
+    list.forEach(m=>{
+      const idx=MESSAGES.indexOf(m);
+      let n=feed.querySelector(`.card[data-i="${idx}"]`);
+      if(n && !state.fresh.has(idx)){ n.dataset.cached="1"; }
+      else { const nn=buildCard(m,idx,state.fresh.has(idx)); if(n) n.replaceWith(nn); n=nn; }
+      feed.appendChild(n);
+    });
+  }
+  state.fresh=new Set();
+  $("sMsgs").textContent=list.length;
+  $("sUrg").textContent=list.filter(m=>m.urgency==="high").length;
+  $("sConn").textContent=state.connected.size;
+}
+function renderCost(){
+  const a=state.connected.size, p=state.processed;
+  $("costVal").textContent=(a*p*PENCE_PER_MSG).toFixed(2)+"p";
+  $("costFormula").textContent=`Est. AI cost today: ${a} accounts × ${p} msgs × ${PENCE_PER_MSG}p`;
+}
+function renderCap(){
+  const a=state.connected.size, p=state.processed;
+  const aw=a>=MAX_ACCOUNTS?' class="warn"':'', pw=p>=MAX_MSGS?' class="warn"':'';
+  $("cap").innerHTML=`Free tier: <b>${MAX_ACCOUNTS} accounts max / ${MAX_MSGS} messages per day</b><br>Accounts <span${aw}>${a}/${MAX_ACCOUNTS}</span> · Messages scored today <span${pw}>${p}/${MAX_MSGS}</span>`;
+}
+function renderSwitch(){
+  const b=$("smartToggle"); b.classList.toggle("on",state.smart); b.setAttribute("aria-pressed",state.smart);
+}
+function renderAll(){renderConn();renderPills();renderFeed();renderCost();renderCap();renderSwitch();}
+
+$("connGrid").addEventListener("click",e=>{
+  const b=e.target.closest(".conn"); if(!b) return;
+  const k=b.dataset.src, name=SOURCES[k].label;
+  if(state.connected.has(k)){
+    state.connected.delete(k); toast(`${name} disconnected`); renderAll(); return;
+  }
+  if(k==="sms"){ toast("SMS is a paid add-on — coming soon"); return; }
+  if(state.connected.size>=MAX_ACCOUNTS){ toast(`Free tier limit: ${MAX_ACCOUNTS} accounts max. Disconnect one first.`); return; }
+  state.connected.add(k); toast(`${name} connected (mock)`);
+  runScoring(); renderAll();
+});
+$("pills").addEventListener("click",e=>{
+  const b=e.target.closest(".pill"); if(!b) return;
+  state.filter=b.dataset.cat; renderPills(); renderFeed();
+});
+$("feed").addEventListener("click",e=>{
+  const c=e.target.closest(".card"); if(!c) return;
+  const m=MESSAGES[+c.dataset.i];
+  toast(`✍️ Drafting reply to ${m.sender}... (simulated, nothing sent)`);
+});
+$("smartToggle").addEventListener("click",()=>{
+  state.smart=!state.smart; renderSwitch();
+  toast(state.smart?"Smart Refresh ON: only new messages get scored":"Smart Refresh OFF: every refresh re-scores everything");
+});
+$("refreshNow").addEventListener("click",()=>{ runScoring(); renderAll(); });
+$("resetDay").addEventListener("click",()=>{
+  state.processed=0; state.scored=new Set(); runScoring(); $("log").textContent="New day: "+$("log").textContent; renderAll(); toast("New day: counters reset");
+});
+$("pricing").addEventListener("click",e=>{
+  const b=e.target.closest(".startbtn"); if(!b) return;
+  const t=b.dataset.start;
+  toast(t==="Free" ? "You're on the Free plan: 3 accounts, 100 messages/day" : `${t} starts on Free for now. Paid upgrade is coming soon (nothing charged)`);
+});
+runScoring(); renderAll();
+</script>
+</body>
+</html>
