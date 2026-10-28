@@ -29,11 +29,16 @@
   .stat b{display:block;font-size:24px}
   .stat span{font-size:12px;color:var(--muted)}
   .stat.urg b{color:var(--red)}
-  .pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .pills{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:4px}
   .pill{flex:0 0 auto;background:var(--panel);border:2px solid #2a303b;color:var(--text);border-radius:999px;padding:8px 16px;font-size:14px;cursor:pointer;font-family:inherit}
   .pill[data-cat=work].active{border-color:var(--orange);background:rgba(255,159,67,.18);color:var(--orange)}
   .pill[data-cat=personal].active{border-color:var(--green);background:rgba(46,204,113,.18);color:var(--green)}
-  .pill[data-cat=pleasure].active{border-color:var(--purple);background:rgba(167,123,255,.18);color:var(--purple)}
+  .pill.custom.active{border-color:var(--c);background:var(--cbg);color:var(--c)}
+  .pill.add{border-style:dashed;color:var(--muted)}
+  .addrow{display:flex;gap:8px;margin-top:8px;align-items:center}
+  .addrow[hidden]{display:none}
+  .addrow input{flex:1;min-width:0;background:var(--panel);border:2px solid #3a4352;color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;font-family:inherit}
+  .addrow input:focus{outline:none;border-color:var(--blue)}
   .pill[data-cat=all].active{border-color:var(--text);background:#2a303b}
   .card{background:var(--panel);border-radius:14px;padding:12px 14px;margin-bottom:10px;border-left:5px solid var(--muted);cursor:pointer}
   .card:active{background:var(--panel2)}
@@ -48,7 +53,6 @@
   .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
   .tag.work{background:rgba(255,159,67,.18);color:var(--orange)}
   .tag.personal{background:rgba(46,204,113,.18);color:var(--green)}
-  .tag.pleasure{background:rgba(167,123,255,.18);color:var(--purple)}
   .tag.high{background:rgba(255,92,92,.18);color:var(--red)}
   .tag.med{background:rgba(245,197,66,.18);color:var(--amber)}
   .tag.low{background:#262c36;color:var(--muted)}
@@ -94,6 +98,20 @@
   .startbtn{background:var(--green);color:#06210f;border:0;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
   .tier.pro .startbtn{background:var(--blue);color:#06182b}
   .tier .cur{font-size:11px;color:var(--green);font-weight:700;letter-spacing:1px;margin-bottom:2px}
+
+  .fc{text-transform:none;letter-spacing:0;font-weight:500;font-size:12px;color:var(--muted);margin-left:6px}
+  .fc b{color:var(--text)} .fc .u{color:var(--red)}
+  .cols{display:block}
+  @media(min-width:900px){
+    .wrap{max-width:1100px}
+    .cols{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start}
+    .left h2:first-child,.right h2:first-child{margin-top:0}
+    .grid{grid-template-columns:1fr}
+    .conn{flex-direction:row;justify-content:flex-start;gap:12px;min-height:58px;padding:10px 14px}
+    .conn:last-child:nth-child(odd){grid-column:auto}
+    .conn .ic{font-size:24px}
+    .conn .st{margin-left:auto}
+  }
 </style>
 </head>
 <body>
@@ -101,6 +119,8 @@
   <header><h1>📬 UniBox</h1><span class="badge">POC</span></header>
   <p class="sub">One feed for every inbox. All messages below are mock example data, not real mail.</p>
 
+  <div class="cols">
+    <div class="left">
   <h2>Connect accounts</h2>
   <div class="grid" id="connGrid"></div>
 
@@ -111,7 +131,7 @@
   </div>
 
   <div class="panel costrow cost">
-    <div><b id="costVal">0.00p</b><small id="costFormula">Est. AI cost today (mini-model, 0.02p per message)</small></div>
+    <div><b id="costVal">£0.00</b><small id="costFormula">Est. AI cost today: first 100 messages free, then 0.02p per message</small></div>
     <button class="mini" id="resetDay">Reset day</button>
   </div>
 
@@ -123,12 +143,18 @@
     <div class="log" id="log">Ready.</div>
   </div>
 
+  <p class="cap" id="cap"></p>
+    </div>
+    <div class="right">
   <h2>Filter</h2>
   <div class="pills" id="pills"></div>
+  <div class="addrow" id="addRow" hidden><input id="catInput" maxlength="20" placeholder="New category name" autocomplete="off"><button class="mini" id="catAdd">Add</button><button class="mini" id="catCancel">Cancel</button></div>
 
-  <h2>Feed (urgent first)</h2>
+  <h2>Feed (urgent first) <span class="fc" id="feedCounts"></span></h2>
   <div id="feed"></div>
-  <p class="cap" id="cap"></p>
+    </div>
+  </div>
+
   <h2 id="pricingH">Pricing</h2>
   <div class="pricing" id="pricing">
     <div class="tier" data-tier="free">
@@ -177,7 +203,7 @@ const SOURCES = {
   sms:{label:"SMS",icon:"💬"},
   whatsapp:{label:"WhatsApp",icon:"🟢"}
 };
-const CATS = [["all","All"],["work","Work"],["personal","Personal"],["pleasure","Pleasure"]];
+const BASE_CATS = ["work","personal"];
 const RANK = {high:0,med:1,low:2};
 
 // Mock data only (example senders, not real people)
@@ -185,17 +211,17 @@ const MESSAGES = [
   {source:"gmail",category:"work",sender:"Alex Morgan",subject:"Contract needs signing today",preview:"Please sign the supplier contract before 5pm or the price offer lapses.",ago:"12 min ago",mins:12,urgency:"high",ai:"Flagged high: hard deadline today and a financial consequence if missed."},
   {source:"sms",category:"personal",sender:"Sam (Brother)",subject:"Mum's hospital visit",preview:"Can you ring me back? Mum's appointment moved to this afternoon.",ago:"25 min ago",mins:25,urgency:"high",ai:"Flagged high: family health matter with a same-day change."},
   {source:"outlook",category:"work",sender:"Priya Shah",subject:"Meeting moved to 3pm",preview:"Quick heads up, the project review is now 3pm in room B.",ago:"1 hr ago",mins:60,urgency:"med",ai:"Flagged medium: schedule change today, needs a reply to confirm."},
-  {source:"whatsapp",category:"personal",sender:"Dave (Mates)",subject:"Sunday ride out?",preview:"Heading to the coast on Sunday if the weather holds. You in?",ago:"2 hr ago",mins:120,urgency:"med",ai:"Flagged medium: a friend is waiting on your yes or no before the weekend."},
+  {source:"whatsapp",category:"riding",sender:"Dave (Mates)",subject:"Sunday ride out?",preview:"Heading to the coast on Sunday if the weather holds. You in?",ago:"2 hr ago",mins:120,urgency:"med",ai:"Flagged medium: a friend is waiting on your yes or no before the weekend."},
   {source:"icloud",category:"personal",sender:"Bright Energy",subject:"Your monthly bill is ready",preview:"Your latest statement is available. Payment due in 10 days.",ago:"3 hr ago",mins:180,urgency:"med",ai:"Flagged medium: a bill with a due date, but no action needed today."},
-  {source:"gmail",category:"pleasure",sender:"Track Day Events",subject:"Early-bird tickets close Friday",preview:"Spring track day tickets are 20% off until Friday midnight.",ago:"5 hr ago",mins:300,urgency:"low",ai:"Marked low: matches your riding interest, but it's optional and not urgent."},
+  {source:"gmail",category:"riding",sender:"Track Day Events",subject:"Early-bird tickets close Friday",preview:"Spring track day tickets are 20% off until Friday midnight.",ago:"5 hr ago",mins:300,urgency:"low",ai:"Marked low: matches your riding interest, but it's optional and not urgent."},
   {source:"outlook",category:"work",sender:"Team Digest",subject:"Weekly update: 14 items",preview:"Here's what changed across your projects this week.",ago:"6 hr ago",mins:360,urgency:"low",ai:"Marked low: automated digest, no direct questions to you."},
-  {source:"whatsapp",category:"pleasure",sender:"Film Club",subject:"Poll: Friday movie pick",preview:"Vote for this Friday's film. Results at 6pm.",ago:"8 hr ago",mins:480,urgency:"low",ai:"Marked low: social poll, easy to answer later."},
+  {source:"whatsapp",category:"personal",sender:"Film Club",subject:"Poll: Friday movie pick",preview:"Vote for this Friday's film. Results at 6pm.",ago:"8 hr ago",mins:480,urgency:"low",ai:"Marked low: social poll, easy to answer later."},
   {source:"sms",category:"work",sender:"Parcel Courier",subject:"Delivery window tomorrow",preview:"Your parcel will arrive between 10am and 2pm tomorrow.",ago:"1 day ago",mins:1440,urgency:"low",ai:"Marked low: automated notification with nothing to reply to."},
-  {source:"icloud",category:"pleasure",sender:"Weekend Deals",subject:"Newsletter: 10 ideas for the weekend",preview:"Restaurants, rides and gigs happening near you this weekend.",ago:"2 days ago",mins:2880,urgency:"low",ai:"Marked low: marketing newsletter, safe to ignore."}
+  {source:"icloud",category:"personal",sender:"Weekend Deals",subject:"Newsletter: 10 ideas for the weekend",preview:"Restaurants, rides and gigs happening near you this weekend.",ago:"2 days ago",mins:2880,urgency:"low",ai:"Marked low: marketing newsletter, safe to ignore."}
 ];
 
 const MAX_ACCOUNTS=3, MAX_MSGS=100, PENCE_PER_MSG=0.02;
-const state = {connected:new Set(["gmail","outlook"]), filter:"all", smart:true, processed:0, scored:new Set(), fresh:new Set()};
+const state = {custom:[], connected:new Set(["gmail","outlook"]), filter:"all", smart:true, processed:0, scored:new Set(), fresh:new Set()};
 const $ = id => document.getElementById(id);
 
 function toast(msg){
@@ -207,19 +233,29 @@ function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;
 // Simulated AI scoring run. Smart Refresh ON: score only messages not in the cache.
 function runScoring(){
   const vis=MESSAGES.map((m,i)=>i).filter(i=>state.connected.has(MESSAGES[i].source));
-  let targets = state.smart ? vis.filter(i=>!state.scored.has(i)) : vis.slice();
+  const targets = state.smart ? vis.filter(i=>!state.scored.has(i)) : vis.slice();
   const cached = vis.length - targets.length;
-  const room = MAX_MSGS - state.processed;
-  let capped=false;
-  if(targets.length>room){targets=targets.slice(0,Math.max(room,0));capped=true;}
+  const before = state.processed;
   state.processed += targets.length;
   targets.forEach(i=>state.scored.add(i));
   state.fresh=new Set(targets);
   $("log").textContent = state.smart
     ? `Smart Refresh: cached ${cached} messages, scored ${targets.length} new`
     : `Full refresh: re-scored all ${targets.length} messages (no cache)`;
-  if(capped) toast("Daily free-tier cap reached: 100 messages scored");
+  if(before<=MAX_MSGS && state.processed>MAX_MSGS) toast("Free daily allowance used. Extra messages are billed at 0.02p each (estimate)");
 }
+
+const cap1 = c => c.charAt(0).toUpperCase()+c.slice(1);
+// Generated colour per custom category (stable hash of the name -> hue)
+function catHue(c){let h=0;for(const ch of c)h=(h*31+ch.charCodeAt(0))>>>0;return h%360;}
+function catColors(c){const h=catHue(c);return {fg:`hsl(${h},70%,65%)`,bg:`hsla(${h},70%,60%,.18)`};}
+function isCustom(c){return !BASE_CATS.includes(c);}
+function catTag(c){
+  if(!isCustom(c)) return `<span class="tag ${esc(c)}">${esc(c)}</span>`;
+  const k=catColors(c); return `<span class="tag" style="background:${k.bg};color:${k.fg}">${esc(c)}</span>`;
+}
+// Custom categories already used by the mock data get a pill automatically.
+MESSAGES.forEach(m=>{ if(isCustom(m.category) && !state.custom.includes(m.category)) state.custom.push(m.category); });
 
 function renderConn(){
   $("connGrid").innerHTML = Object.entries(SOURCES).map(([k,v])=>{
@@ -229,7 +265,12 @@ function renderConn(){
   }).join("");
 }
 function renderPills(){
-  $("pills").innerHTML = CATS.map(([k,l])=>`<button class="pill ${state.filter===k?"active":""}" data-cat="${k}">${l}</button>`).join("");
+  const cats=["all",...BASE_CATS,...state.custom];
+  $("pills").innerHTML = cats.map(k=>{
+    const cls = `pill${isCustom(k)&&k!=="all"?" custom":""}${state.filter===k?" active":""}`;
+    const st = (isCustom(k)&&k!=="all") ? ` style="--c:${catColors(k).fg};--cbg:${catColors(k).bg}"` : "";
+    return `<button class="${cls}" data-cat="${esc(k)}"${st}>${esc(cap1(k))}</button>`;
+  }).join("") + `<button class="pill add" id="addFilterBtn">＋ Add filter</button>`;
 }
 function visible(){
   return MESSAGES.filter(m=>state.connected.has(m.source) && (state.filter==="all"||m.category===state.filter))
@@ -245,7 +286,7 @@ function buildCard(m,idx,fresh){
       <div class="sender">${esc(m.sender)}</div>
       <div class="subject">${esc(m.subject)}</div>
       <div class="preview">${esc(m.preview)}</div>
-      <div class="tags"><span class="tag ${m.urgency}">${m.urgency==="med"?"medium":m.urgency}</span><span class="tag ${m.category}">${m.category}</span></div>
+      <div class="tags"><span class="tag ${m.urgency}">${m.urgency==="med"?"medium":m.urgency}</span>${catTag(m.category)}</div>
       <div class="ai"><b>🤖 AI note:</b> ${esc(ai)}</div>`;
   return n;
 }
@@ -269,11 +310,17 @@ function renderFeed(){
   $("sMsgs").textContent=list.length;
   $("sUrg").textContent=list.filter(m=>m.urgency==="high").length;
   $("sConn").textContent=state.connected.size;
+  const urg=list.filter(m=>m.urgency==="high").length;
+  $("feedCounts").innerHTML=`<b>${list.length}</b> ${list.length===1?"message":"messages"} · <span class="u"><b>${urg}</b> urgent</span>`;
 }
 function renderCost(){
   const a=state.connected.size, p=state.processed;
-  $("costVal").textContent=(a*p*PENCE_PER_MSG).toFixed(2)+"p";
-  $("costFormula").textContent=`Est. AI cost today: ${a} accounts × ${p} msgs × ${PENCE_PER_MSG}p`;
+  const billable=Math.max(0, p-MAX_MSGS);
+  const pence=a*billable*PENCE_PER_MSG;
+  $("costVal").textContent = pence===0 ? "£0.00" : (pence<100 ? pence.toFixed(2)+"p" : "£"+(pence/100).toFixed(2));
+  $("costFormula").textContent = billable===0
+    ? `Est. AI cost today: free allowance ${p}/${MAX_MSGS} messages used`
+    : `Est. AI cost today: ${a} accounts × ${billable} billable msgs × ${PENCE_PER_MSG}p`;
 }
 function renderCap(){
   const a=state.connected.size, p=state.processed;
@@ -298,8 +345,23 @@ $("connGrid").addEventListener("click",e=>{
 });
 $("pills").addEventListener("click",e=>{
   const b=e.target.closest(".pill"); if(!b) return;
+  if(b.id==="addFilterBtn"){ $("addRow").hidden=false; $("catInput").value=""; $("catInput").focus(); return; }
   state.filter=b.dataset.cat; renderPills(); renderFeed();
 });
+function addCategory(){
+  const raw=$("catInput").value;
+  const name=raw.normalize("NFKC").replace(/[^\p{L}\p{N} \-]/gu,"").replace(/\s+/g," ").trim().toLowerCase().slice(0,20);
+  if(!name){ toast("Type a category name first"); return; }
+  if(name==="all"){ toast("\"All\" is already a filter"); return; }
+  const existed = BASE_CATS.includes(name) || state.custom.includes(name);
+  if(!existed) state.custom.push(name);
+  state.filter=name; $("addRow").hidden=true; $("catInput").value="";
+  renderPills(); renderFeed();
+  toast(existed ? `"${cap1(name)}" already exists, filter selected` : `Filter "${cap1(name)}" added`);
+}
+$("catAdd").addEventListener("click",addCategory);
+$("catCancel").addEventListener("click",()=>{ $("addRow").hidden=true; $("catInput").value=""; });
+$("catInput").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();addCategory();} else if(e.key==="Escape"){$("addRow").hidden=true;} });
 $("feed").addEventListener("click",e=>{
   const c=e.target.closest(".card"); if(!c) return;
   const m=MESSAGES[+c.dataset.i];
